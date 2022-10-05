@@ -1,0 +1,111 @@
+﻿@inject IJSRuntime _jsRuntime
+@inject LocalStorage _localStorage
+
+@*@attribute [Authorize]*@
+@page "/users"
+
+<h3>Users</h3>
+<hr />
+<AuthorizeView>
+    <NotAuthorized>
+        <p>Please <a href="/login?returnUrl=/users">login</a> to continue...</p>
+    </NotAuthorized>
+    <Authorized>
+        @if (users != null)
+        {
+            <div style="border:1px solid black; max-height:400px; overflow:auto; width:100%;">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Name</th>
+                            <th>DOB</th>
+                            <th>Gender</th>
+                            <th>Address</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in users)
+                        {
+                            <tr>
+                                <td>@user["username"].ToString()</td>
+                                <td>@user["name"].ToString()</td>
+                                <td>@DateTime.Parse(user["dob"].ToString()).ToShortDateString()</td>
+                                <td>@user["gender"].ToString()</td>
+                                <td>@user["address"].ToString()</td>
+                                <td>@user["email"].ToString()</td>
+                                <td>@user["phone"].ToString()</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    private List<Dictionary<string, object>> users;
+    private Dictionary<string, string> userInfo; 
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // get user info
+            userInfo = await _localStorage.GetItem<Dictionary<string, string>>("userInfo"); 
+            if (userInfo != null) // session is alive
+            {
+                GetUsersList();
+            }
+        }
+    }
+
+    async void GetUsersList() // consume /api/user/getAll
+    {
+        try 
+        {
+            var jsonSerializerOptions = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+            // consume api
+            var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7058/api/user/getAll");
+            request.Headers.Add("authenticationCode", userInfo["authenticationCode"]);
+            var result = await new HttpClient().SendAsync(request);
+            result.EnsureSuccessStatusCode();
+            // receive response as json
+            var content = await result.Content.ReadAsStringAsync();
+            var response = JsonSerializer.Deserialize<ExpandoObject>(content) as IDictionary<string, object>;
+            // validate response
+            if (bool.Parse(response["success"].ToString()))
+            {
+                // get response data
+                var data = JsonSerializer.Deserialize<IEnumerable<ExpandoObject>>(response["data"].ToString());
+                // push response data to a list
+                users = new List<Dictionary<string, object>>();
+                foreach (var node in data.ToArray()) 
+                {
+                    var user = new Dictionary<string, object>();
+                    foreach (var kvp in node) 
+                    {
+                        user.Add(kvp.Key, kvp.Value);
+                    }
+                    users.Add(user);
+                }
+            }
+            else // user not authenticated
+            {
+                await _jsRuntime.InvokeVoidAsync("alert", response["message"].ToString());
+            }
+        }
+        catch (Exception err)
+        {
+            await _jsRuntime.InvokeVoidAsync("alert", err.Message);
+        }
+        // flush changes
+        StateHasChanged();
+    }
+}

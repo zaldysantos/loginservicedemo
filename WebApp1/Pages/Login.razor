@@ -1,0 +1,116 @@
+﻿@inject IJSRuntime _jsRuntime
+@inject NavigationManager _navigationManager
+@inject LocalStorage _localStorage
+
+@page "/login"
+
+<AuthorizeView>
+    <NotAuthorized>
+        <h3>Login</h3>
+        <hr />
+        <div class="row">
+            <div class="col-xs-12 col-sm-12 col-md-4 col-lg-3 col-xl-2">
+                <label class="col-form-label-lg">
+                    <span class="oi oi-person"></span> Username
+                </label>
+            </div>
+            <div class="col-xs-12 col-sm-12 col-md-5 col-lg-5 col-xl-5">
+                <input id="txtUsername" class="form-control-lg" @bind-value="username" />
+            </div>
+            <div class="col-xs-12 col-sm-12 col-md-3 col-lg-4 col-xl-5">
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xs-12 col-sm-12 col-md-4 col-lg-3 col-xl-2">
+                <label class="col-form-label-lg">
+                    <span class="oi oi-key"></span> Password
+                </label>
+            </div>
+            <div class="col-xs-12 col-sm-12 col-md-5 col-lg-5 col-xl-5">
+                <input id="txtPassword" type="password" class="form-control-lg" @bind-value="password" />
+            </div>
+            <div class="col-xs-12 col-sm-12 col-md-3 col-lg-4 col-xl-5">
+            </div>
+        </div>
+        <br />
+        <button class="btn btn-lg btn-primary" @onclick="DoLogin" disabled="@isBusy">Login</button>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } // authorization
+
+    private bool isBusy = false;
+    private string username; 
+    private string password; 
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var authState = await AuthState;
+            if (authState.User.Identity.IsAuthenticated) // logged-in as 'user'
+            {
+                await _jsRuntime.InvokeVoidAsync("alert", "You are already logged-in.");
+                _navigationManager.NavigateTo("/", true); // redirect to home page
+            }
+        }
+    }
+
+    async void DoLogin() // login button clicked
+    {
+        isBusy = true;
+        try 
+        {
+            var jsonSerializerOptions = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+            // serialize payload as json
+            var payload = JsonSerializer.Serialize(
+                new
+                {
+                    Username = username,
+                    Password = password
+                }
+            );
+            // consume api
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:7058/api/user/login");
+            request.Content = new StringContent(payload, Encoding.UTF8, "application/json");
+            var result = await new HttpClient().SendAsync(request);
+            result.EnsureSuccessStatusCode();
+            // receive response as json
+            var content = await result.Content.ReadAsStringAsync();
+            var response = JsonSerializer.Deserialize<ExpandoObject>(content) as IDictionary<string, object>;
+            // validate response
+            if (bool.Parse(response["success"].ToString()))
+            {
+                // store user info 
+                var userInfo = new Dictionary<string, string>();
+                userInfo.Add("username", username);
+                userInfo.Add("authenticationCode", response["data"].ToString());
+                await _localStorage.SetItem("userInfo", userInfo); 
+
+                await _jsRuntime.InvokeVoidAsync("alert", "You are now logged-in.");
+                // redirect
+                const string _ARG_REDIR = "returnUrl=";
+                var uri = _navigationManager.Uri.ToString();
+                var isRedir = uri.Contains(_ARG_REDIR);
+                var returnUrl = isRedir ? uri.Substring(uri.IndexOf(_ARG_REDIR)).Replace(_ARG_REDIR, string.Empty) : string.Empty;
+                _navigationManager.NavigateTo(string.IsNullOrWhiteSpace(returnUrl) || !isRedir ? "/" : returnUrl, true); 
+            }
+            else // login failed
+            {
+                await _jsRuntime.InvokeVoidAsync("alert", response["message"].ToString());
+            }
+        }
+        catch (Exception err)
+        {
+            await _jsRuntime.InvokeVoidAsync("alert", err.Message);
+        }
+        isBusy = false;
+        // flush changes
+        StateHasChanged();
+    }
+}

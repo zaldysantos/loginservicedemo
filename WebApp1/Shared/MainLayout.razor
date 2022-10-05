@@ -1,0 +1,24 @@
+﻿@inherits LayoutComponentBase
+
+<div class="sidebar">
+    <NavMenu />
+</div>
+
+<div class="main">
+    <div class="top-row px-4">
+        @*<a href="https://docs.microsoft.com/aspnet/" target="_blank">About</a>*@
+        <AuthorizeView>
+            <NotAuthorized>
+                <a href="login"><span class="oi oi-account-login"></span> Login</a>
+            </NotAuthorized>
+            <Authorized>
+                <a href="user"><span class="oi oi-person"></span> @context.User.FindFirst(ClaimTypes.Name).Value</a>
+                <a href="logout"><span class="oi oi-account-logout"></span> Logout</a>
+            </Authorized>
+        </AuthorizeView>
+    </div>
+
+    <div class="content px-4">
+        @Body
+    </div>
+</div>

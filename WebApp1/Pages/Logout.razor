@@ -1,0 +1,32 @@
+﻿@inject IJSRuntime _jsRuntime
+@inject NavigationManager _navigationManager
+@inject LocalStorage _localStorage
+
+@page "/logout"
+
+<h3>Logout</h3>
+<hr />
+<p>@status</p>
+
+@code {
+    private string status = "Logging-out...";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // get user info 
+            var userInfo = await _localStorage.GetItem<Dictionary<string, string>>("userInfo"); 
+            if (userInfo != null) // user info found
+            {
+                // purge user info 
+                await _localStorage.RemoveItem("userInfo"); 
+                await _jsRuntime.InvokeVoidAsync("alert", "You have logged-out."); 
+                _navigationManager.NavigateTo("/login", true); // redirect to login page
+            }
+        }
+        status = "Logged-out."; 
+        // flush changes
+        StateHasChanged();
+    }
+}
