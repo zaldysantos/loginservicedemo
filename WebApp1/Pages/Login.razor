@@ -1,4 +1,4 @@
-﻿@inject IJSRuntime _jsRuntime
+@inject IJSRuntime _jsRuntime
 @inject NavigationManager _navigationManager
 @inject LocalStorage _localStorage
 
@@ -52,7 +52,6 @@
             var authState = await AuthState;
             if (authState.User.Identity.IsAuthenticated) // logged-in as 'user'
             {
-                await _jsRuntime.InvokeVoidAsync("alert", "You are already logged-in.");
                 _navigationManager.NavigateTo("/", true); // redirect to home page
             }
         }
@@ -83,6 +82,7 @@
             // receive response as json
             var content = await result.Content.ReadAsStringAsync();
             var response = JsonSerializer.Deserialize<ExpandoObject>(content) as IDictionary<string, object>;
+            await _jsRuntime.InvokeVoidAsync("alert", response["message"].ToString());
             // validate response
             if (bool.Parse(response["success"].ToString()))
             {
@@ -91,8 +91,6 @@
                 userInfo.Add("username", username);
                 userInfo.Add("authenticationCode", response["data"].ToString());
                 await _localStorage.SetItem("userInfo", userInfo); 
-
-                await _jsRuntime.InvokeVoidAsync("alert", "You are now logged-in.");
                 // redirect
                 const string _ARG_REDIR = "returnUrl=";
                 var uri = _navigationManager.Uri.ToString();
@@ -102,7 +100,7 @@
             }
             else // login failed
             {
-                await _jsRuntime.InvokeVoidAsync("alert", response["message"].ToString());
+                password = string.Empty;
             }
         }
         catch (Exception err)
