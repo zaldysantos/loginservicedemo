@@ -27,24 +27,20 @@ namespace LoginService.Controllers
                 Timestamp = DateTime.Now,
                 Success = false,
                 Data = null,
-                Message = "Failed"
+                Message = "Login failed."
             };
 
             try
             {
                 var data = Data.Users.GetUserByUsername(user.Username); // find user data
                 // check if password is correct
-                data = data == null 
-                    ? null 
-                    : (string.IsNullOrWhiteSpace(data.Password) 
-                        ? null 
-                        : (data.Password.Trim().Equals(user.Password) ? data : null)); 
+                data = data == null ? null : (string.IsNullOrWhiteSpace(data.Password) ? null : (data.Password.Trim().Equals(user.Password) ? data : null)); 
 
                 response.Success = data != null; // if user data found, assume success
                 if (response.Success)
                 {
                     response.Data = AuthCodeGenerator.Encrypt(user); // generate authentication code
-                    response.Message = "Success";
+                    response.Message = "You are now logged-in.";
 
                     user.Password = "(redacted)"; // hide the password
                     response.Args = user; // the user data
@@ -73,31 +69,6 @@ namespace LoginService.Controllers
                 Timestamp = DateTime.Now,
                 Success = isAuthenticated,
                 Data = Data.Users.GetUsers(authenticationCode),
-                Message = isAuthenticated ? "Success" : "Failed"
-            };
-        }
-
-        [HttpGet]
-        [Route("authentication")]
-        public ViewModels.Response Authentication([FromHeader] string authenticationCode)
-        {
-            var requestContext = HttpContext.Request;
-            // authentication code as user data
-            var user = AuthCodeGenerator.Decrypt(authenticationCode);
-            // validate authentication code
-            var isAuthenticated = Data.Users.IsAuthenticated(authenticationCode);
-            // get user data
-            user = isAuthenticated ? (user == null ? null : Data.Users.GetUserByUsername(user.Username)) : null;
-            // validate user data 
-            isAuthenticated = isAuthenticated && user != null; 
-
-            return new ViewModels.Response
-            {
-                Service = $"{requestContext.Method} {requestContext.Path}",
-                Args = authenticationCode,
-                Timestamp = DateTime.Now,
-                Success = isAuthenticated,
-                Data = user,
                 Message = isAuthenticated ? "Success" : "Failed"
             };
         }
