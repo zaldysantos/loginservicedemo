@@ -80,17 +80,20 @@ namespace DeskApp1
             );
             try // consume /api/user/login
             {
-                var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost:7058/api/user/login");
+                var url = "https://localhost:7058/api/user/login";
+                var request = new HttpRequestMessage(HttpMethod.Post, url);
                 request.Content = new StringContent(payload, Encoding.UTF8, "application/json");
                 var result = await new HttpClient().SendAsync(request);
                 result.EnsureSuccessStatusCode();
                 // receive response as json
                 var content = await result.Content.ReadAsStringAsync();
                 var response = JsonSerializer.Deserialize<JsonNode>(content, jsonSerializerOptions);
+                var responseSuccess = (bool)response["success"];
+                var responseMessage = (string)response["message"];
+                MessageBox.Show(responseMessage, url, MessageBoxButton.OK, responseSuccess ? MessageBoxImage.Information : MessageBoxImage.Warning);
                 // validate response
                 if ((bool)response["success"]) 
                 {
-                    MessageBox.Show("You are now logged-in.", request.RequestUri.ToString(), MessageBoxButton.OK, MessageBoxImage.Information);
                     AuthenticationCode = (string)response["data"]; // store authentication code 
                     loggedInAs.Content = $"Logged-in as {loginWindow.textBox.Text}";
                     statusText.Content = "Ready.";
@@ -100,7 +103,7 @@ namespace DeskApp1
                 }
                 else // user login failed
                 {
-                    MessageBox.Show((string)response["message"], request.RequestUri.ToString(), MessageBoxButton.OK, MessageBoxImage.Warning);
+                    loginWindow.passwordBox.Clear();
                     loginWindow.passwordBox.Focus();
                 }
             }
@@ -117,7 +120,8 @@ namespace DeskApp1
         {
             try // consume /api/user/getAll
             {
-                var request = new HttpRequestMessage(HttpMethod.Get, "https://localhost:7058/api/user/getAll");
+                var url = "https://localhost:7058/api/user/getAll";
+                var request = new HttpRequestMessage(HttpMethod.Get, url);
                 request.Headers.Add("authenticationCode", AuthenticationCode);
                 var result = await new HttpClient().SendAsync(request);
                 result.EnsureSuccessStatusCode();
@@ -150,12 +154,12 @@ namespace DeskApp1
                 }
                 else // user not authenticated
                 {
-                    MessageBox.Show((string)response["message"], request.RequestUri.ToString(), MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show((string)response["message"], url, MessageBoxButton.OK, MessageBoxImage.Warning);
                 }
             }
             catch (Exception err)
             {
-                MessageBox.Show(err.Message, loginWindow.Title, MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(err.Message, Title, MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
     }
